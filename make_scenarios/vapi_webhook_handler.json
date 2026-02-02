@@ -1,0 +1,160 @@
+{
+  "name": "Voice Agent: VAPI Webhook Handler",
+  "description": "Receives end-of-call reports from VAPI and processes them (e.g., create calendar event, send email, update CRM)",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "hook": null,
+        "maxResults": 1
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        },
+        "restore": {},
+        "parameters": [
+          {
+            "name": "hook",
+            "type": "hook:gateway-webhook",
+            "label": "Webhook",
+            "required": true
+          },
+          {
+            "name": "maxResults",
+            "type": "number",
+            "label": "Maximum number of results"
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "module": "builtin:BasicRouter",
+      "version": 1,
+      "mapper": null,
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        }
+      },
+      "routes": [
+        {
+          "flow": [
+            {
+              "id": 3,
+              "module": "google-calendar:createAnEvent",
+              "version": 5,
+              "parameters": {
+                "account": null
+              },
+              "mapper": {
+                "select": "calendar",
+                "calendar": "primary",
+                "summary": "{{1.message.analysis.structuredData.reservation_name}} - Reservation",
+                "description": "Guests: {{1.message.analysis.structuredData.reservation_guests}}\nPhone: {{1.message.call.customer.number}}\n\nCall Summary: {{1.message.analysis.summary}}",
+                "start": {
+                  "dateTime": "{{1.message.analysis.structuredData.reservation_date}}T{{1.message.analysis.structuredData.reservation_time}}:00",
+                  "timeZone": "Australia/Melbourne"
+                },
+                "end": {
+                  "dateTime": "{{1.message.analysis.structuredData.reservation_date}}T{{addHours(1.message.analysis.structuredData.reservation_time; 2)}}:00",
+                  "timeZone": "Australia/Melbourne"
+                }
+              },
+              "metadata": {
+                "designer": {
+                  "x": 600,
+                  "y": -150
+                }
+              },
+              "filter": {
+                "name": "Reservation Made",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{1.message.analysis.structuredData.reservation}}",
+                      "b": "true",
+                      "o": "text:equal"
+                    }
+                  ]
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 4,
+              "module": "google-email:ActionSendEmail",
+              "version": 2,
+              "parameters": {
+                "account": null
+              },
+              "mapper": {
+                "to": "YOUR_EMAIL@example.com",
+                "subject": "Voice Agent: Follow-up Required",
+                "content": "<h2>Follow-up Required</h2>\n<p><strong>Caller:</strong> {{1.message.call.customer.number}}</p>\n<p><strong>Summary:</strong> {{1.message.analysis.summary}}</p>\n<p><strong>Duration:</strong> {{1.message.call.duration}} seconds</p>\n<p><strong>Transcript:</strong></p>\n<pre>{{1.message.transcript}}</pre>",
+                "contentType": "html"
+              },
+              "metadata": {
+                "designer": {
+                  "x": 600,
+                  "y": 150
+                }
+              },
+              "filter": {
+                "name": "Follow-up Needed",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{1.message.analysis.structuredData.follow_up_required}}",
+                      "b": "true",
+                      "o": "text:equal"
+                    }
+                  ]
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false
+    },
+    "designer": {
+      "orphans": []
+    }
+  },
+  "_readme": {
+    "description": "This Make.com scenario handles VAPI end-of-call webhooks",
+    "setup_steps": [
+      "1. Import this scenario into Make.com",
+      "2. Configure the webhook module (click to get webhook URL)",
+      "3. Connect your Google Calendar account",
+      "4. Connect your Gmail account",
+      "5. Update the email recipient address",
+      "6. Copy the webhook URL to your VAPI assistant config",
+      "7. Turn on the scenario"
+    ],
+    "routes": {
+      "route_1": "Creates Google Calendar event when reservation/appointment is made",
+      "route_2": "Sends email notification when follow-up is required"
+    }
+  }
+}
